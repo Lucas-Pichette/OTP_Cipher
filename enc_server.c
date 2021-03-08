@@ -29,6 +29,42 @@ void setupAddressStruct(struct sockaddr_in *address,
 	address->sin_addr.s_addr = INADDR_ANY;
 }
 
+void encrypt(char *toEncrypt, char *raw, char *key)
+{
+	int i;
+	for (i = 0; i < strlen(raw); i++)
+	{
+	}
+}
+
+void receiveData(char *payload, int connectionSocket)
+{
+	char buffer[1024];
+	memset(buffer, '\0', 1024);
+	/* First recv() should be payload size */
+	printf("SERVER: Attempting to receive data...\n");
+	int charsRead = recv(connectionSocket, buffer, 1024, 0);
+	if (charsRead < 0)
+	{
+		perror("enc_server");
+		printf("ERROR with read\n");
+	}
+	int currByte, payloadSize;
+	payloadSize = atoi(buffer);
+	printf("SERVER: Received Size of Payload: %d\n", payloadSize);
+	currByte = 0;
+
+	/* retrieve payload */
+	memset(payload, '\0', 71000);
+	while (currByte < payloadSize)
+	{
+		memset(buffer, '\0', 1024);
+		currByte += recv(connectionSocket, buffer, 1024, 0);
+		strcat(payload, buffer);
+		printf("SERVER: Received: %s\n", buffer);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int i;
@@ -81,46 +117,17 @@ int main(int argc, char *argv[])
 			   ntohs(clientAddress.sin_addr.s_addr),
 			   ntohs(clientAddress.sin_port));
 
-		/* Get the message from the client and display it */
-		char buffer[1024];
-		memset(buffer, '\0', strlen(buffer));
+		/* Receive key from client */
+		char key[71000];
+		memset(key, '\0', 71000);
+		receiveData(key, connectionSocket);
+		printf("SERVER: Confirming key: %s\n", key);
 
-		/* Read the client's message from the socket */
-		printf("SERVER: Attempting to receive data...\n");
-		charsRead = recv(connectionSocket, buffer, 1024, 0);
-		if (charsRead < 0)
-		{
-			perror("enc_server");
-			printf("ERROR with read\n");
-		}
-
-		/* Parse-out packet meta-data */
-		int currByte, payloadSize;
-		char tmp[10];
-		memset(tmp, '\0', 10);
-		for (i = 0; i < 1024; i++)
-		{
-			if (!('0' <= buffer[i] && buffer[i] <= '9'))
-			{
-				break;
-			}
-			tmp[i] = buffer[i];
-		}
-		payloadSize = atoi(tmp) + 1;
-		currByte = strlen(buffer);
-
-		/* retrieve payload */
-		char payload[71000];
-		memset(payload, '\0', 71000);
-		strcat(payload, buffer);
-		while (currByte < payloadSize)
-		{
-			memset(buffer, '\0', 1024);
-			currByte += recv(connectionSocket, buffer, 1024, 0);
-			strcat(payload, buffer);
-			printf("SERVER: Received: %s\n", buffer);
-		}
-
+		/* Receive message from client */
+		char message[71000];
+		memset(message, '\0', 71000);
+		receiveData(message, connectionSocket);
+		printf("SERVER: Confirming message: %s\n", message);
 		/* TODO: Add Encryption process */
 
 		/* Send a Success message back to the client */

@@ -1,0 +1,1 @@
+rm *.o enc_server enc_client dec_client keygen

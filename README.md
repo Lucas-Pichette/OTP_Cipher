@@ -26,4 +26,4 @@ While in the same directory as `Makefile`, run the program by using the command 
 
 
 ### Academic Honesty
-*My Portfolio Project for OSU's W21 CS344 course. I do not provide consent to anyone who wishes to copy my code in a way that violates OSU's [Code of Conduct §4.2.1](https://studentlife.oregonstate.edu/sites/studentlife.oregonstate.edu/files/student-conduct-community-standards/Code/code_of_student_conduct_8_14_20.pdf).*
+*My 'Assignment 5: One-Time Pads' submission for OSU's W21 CS344 course. I do not provide consent to anyone who wishes to copy my code in a way that violates OSU's [Code of Conduct §4.2.1](https://studentlife.oregonstate.edu/sites/studentlife.oregonstate.edu/files/student-conduct-community-standards/Code/code_of_student_conduct_8_14_20.pdf).*

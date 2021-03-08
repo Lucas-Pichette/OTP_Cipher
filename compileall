@@ -1,0 +1,7 @@
+#!/bin/bash
+gcc -o enc_server -W -Wall -Wextra enc_server.c
+gcc -o enc_client -W -Wall -Wextra enc_client.c
+gcc -o dec_server -W -Wall -Wextra dec_server.c
+gcc -o dec_client -W -Wall -Wextra dec_client.c
+gcc -o keygen -W -Wall -Wextra keygen.c
+

@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 	/* transfer file contents to buffer w/ meta-data padding */
 	char buffer[1024];
 	memset(buffer, '\0', 1024);
-	sprintf(buffer, "%d", fileLen);
+
 	int currByte = strlen(buffer);
 	int mdPadSize = numdigits(fileLen);
 	for (currByte; currByte < 1023; currByte++)
@@ -203,10 +203,10 @@ int main(int argc, char *argv[])
 		}
 		buffer[currByte] = fileContents[currByte - mdPadSize];
 	}
-	buffer[1023] = '\0';
+	buffer[currByte] = '\0';
 	/*printf("buffer (post-metadata): %s\n", buffer);
 	printf("currByte (post-metadata): %d\n", currByte);*/
-	int bytesSent = send(socketFD, buffer, currByte, 0);
+	int bytesSent = send(socketFD, buffer, sizeof(buffer) - 1, 0);
 	memset(buffer, '\0', 1024);
 	while (currByte < fileLen)
 	{
@@ -222,15 +222,11 @@ int main(int argc, char *argv[])
 		currByte += i;
 		/*printf("buffer: %s\n", buffer);
 		printf("CurrByte: %d\n", currByte);*/
-		bytesSent = send(socketFD, buffer, i, 0);
+		bytesSent = send(socketFD, buffer, sizeof(buffer) - 1, 0);
 		memset(buffer, '\0', 1024);
 	}
 
-	/* TODO: Send all data */
-
-	printf("Sent %d bytes to 127.0.0.1\nContent:%s\n", fileLen, buffer);
-
-	/* Read data from the socket, leaving \0 at end */
+	/* Receive data from the server, leaving \0 at end */
 	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);
 	if (charsRead < 0)
 	{

@@ -142,6 +142,44 @@ void setupAddressStruct(struct sockaddr_in *address,
 		   hostInfo->h_length);
 }
 
+void sendallFromFile(char *fn, int socketFD)
+{
+	int i;
+
+	char fileContents[71000];
+	int fileLen;
+	memset(fileContents, '\0', 71000);
+	readFile(fileContents, fn);
+	fileLen = strlen(fileContents);
+
+	char buffer[1024];
+	memset(buffer, '\0', 1024);
+	int currByte = 0;
+	char payloadSize[1024];
+	memset(payloadSize, '\0', 1024);
+	myitoa(fileLen, payloadSize, 10);
+	printf("CLIENT: Sending Size of Payload: %s\n", payloadSize);
+	send(socketFD, payloadSize, sizeof(payloadSize), 0);
+	memset(buffer, '\0', 1024);
+	while (currByte < fileLen)
+	{
+		for (i = 0; i < 1023; i++)
+		{
+			if (fileContents[currByte + i] == '\0')
+			{
+				break;
+			}
+			buffer[i] = fileContents[currByte + i];
+		}
+		buffer[i] = '\0';
+		currByte += i;
+		printf("CLIENT: Sending Payload: %s\n", buffer);
+		/*printf("CurrByte: %d\n", currByte);*/
+		send(socketFD, buffer, sizeof(buffer) - 1, 0);
+		memset(buffer, '\0', 1024);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int i;
@@ -154,6 +192,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "USAGE: %s plaintext key port\n", argv[0]);
 		exit(0);
 	}
+	char *plainTextFile = argv[1];
+	char *keyTextFile = argv[2];
 
 	/* Create a socket (internet socket, TCP connection, auto-protocol) */
 	socketFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -174,59 +214,18 @@ int main(int argc, char *argv[])
 	}
 
 	/* Gather "raw"/unread file lengths for both text and key files */
-	long rFileLen = getCharCount(argv[1]);
-	long rKeyLen = getCharCount(argv[2]);
+	long rFileLen = getCharCount(plainTextFile);
+	long rKeyLen = getCharCount(keyTextFile);
 	rFileLen > rKeyLen ? printf("Key is too short!\n") : 1;
 
-	/* Get input from the plaintextfile from the user */
-	char fileContents[71000];
-	int fileLen;
-	char *pTextFile = argv[1];
-	memset(fileContents, '\0', 71000);
-	readFile(fileContents, pTextFile);
-	fileLen = strlen(fileContents);
+	/* Send all of the key to the server */
+	sendallFromFile(keyTextFile, socketFD);
 
-	printf("file length: %d\n", fileLen);
-	printf("fileContents: %s\n", fileContents);
-
-	/* transfer file contents to buffer w/ meta-data padding */
-	char buffer[1024];
-	memset(buffer, '\0', 1024);
-
-	int currByte = strlen(buffer);
-	int mdPadSize = numdigits(fileLen);
-	for (currByte; currByte < 1023; currByte++)
-	{
-		if (fileContents[currByte - mdPadSize] == '0' || fileContents[currByte - mdPadSize] == '\n')
-		{
-			break;
-		}
-		buffer[currByte] = fileContents[currByte - mdPadSize];
-	}
-	buffer[currByte] = '\0';
-	/*printf("buffer (post-metadata): %s\n", buffer);
-	printf("currByte (post-metadata): %d\n", currByte);*/
-	int bytesSent = send(socketFD, buffer, sizeof(buffer) - 1, 0);
-	memset(buffer, '\0', 1024);
-	while (currByte < fileLen)
-	{
-		for (i = 0; i < 1023; i++)
-		{
-			if (fileContents[currByte + i - mdPadSize] == '\0')
-			{
-				break;
-			}
-			buffer[i] = fileContents[currByte + i - mdPadSize];
-		}
-		buffer[1023] = '\0';
-		currByte += i;
-		/*printf("buffer: %s\n", buffer);
-		printf("CurrByte: %d\n", currByte);*/
-		bytesSent = send(socketFD, buffer, sizeof(buffer) - 1, 0);
-		memset(buffer, '\0', 1024);
-	}
+	/* Send all of the plain text data to user */
+	sendallFromFile(plainTextFile, socketFD);
 
 	/* Receive data from the server, leaving \0 at end */
+	char buffer[1024];
 	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);
 	if (charsRead < 0)
 	{

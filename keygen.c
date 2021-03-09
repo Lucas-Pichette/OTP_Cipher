@@ -41,10 +41,10 @@ char *keygen(int length)
 	/* 27 allowed characters: [A-Z ]{1,length} */
 	time_t t;
 
-	/* +2 is for the additional newline character and the null terminator */
-	char *key = (char *)malloc((length + 2) * sizeof(char));
+	/* +1 is for the additional newline character */
+	char *key = (char *)malloc((length + 1) * sizeof(char));
 	/* ensure all characters in array aren't garbage upon initialization */
-	memset(key, '\0', length + 2);
+	memset(key, '\0', length + 1);
 
 	/* seed/initialize the rng */
 	srand((unsigned)time(&t));
@@ -56,6 +56,8 @@ char *keygen(int length)
 		char randchar = rand() % 26 + 65;
 		key[i] = randchar;
 	}
+
+	key[length] = '\n';
 
 	return key;
 }

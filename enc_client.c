@@ -49,6 +49,9 @@ int getCharCount(char *fn)
 		if (!isupper(c) && c != ' ')
 		{
 			error("File contains bad characters!\n");
+			printf("CLIENT: ERROR: File (%s) contains invalid characters\n", fn);
+			fclose(fp);
+			exit(0);
 		}
 		count++;
 	}
@@ -239,7 +242,12 @@ int main(int argc, char *argv[])
 	/* Gather "raw"/unread file lengths for both text and key files */
 	long rFileLen = getCharCount(plainTextFile);
 	long rKeyLen = getCharCount(keyTextFile);
-	rFileLen > rKeyLen ? printf("Key is too short!\n") : 1;
+	if (rFileLen > rKeyLen)
+	{
+		printf("CLIENT: Key is too short!\n");
+		close(socketFD);
+		exit(0);
+	}
 
 	/* Send all of the key to the server */
 	sendallFromFile(keyTextFile, socketFD);

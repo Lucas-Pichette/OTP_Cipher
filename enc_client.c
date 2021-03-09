@@ -39,6 +39,10 @@ int getCharCount(char *fn)
 	int c;
 	int count = 0;
 	FILE *fp = fopen(fn, "r");
+	if (fp == NULL)
+	{
+		perror(fn), exit(1);
+	}
 
 	while (1)
 	{
@@ -60,15 +64,14 @@ int getCharCount(char *fn)
 	return count;
 }
 
-void readFile(char *fileContents, char *pTextFile)
+void readFile(char *fileContents, char *fn)
 {
 	FILE *fp;
 	/* argv[1] is the plaintext filename */
-	fp = fopen(pTextFile, "r");
+	fp = fopen(fn, "r");
 	if (fp == NULL)
 	{
-		printf("ERROR\n");
-		perror(pTextFile), exit(1);
+		perror(fn), exit(1);
 	}
 	fseek(fp, 0, SEEK_END);
 	int fSize = ftell(fp);
@@ -228,7 +231,8 @@ int main(int argc, char *argv[])
 		error("CLIENT: ERROR opening socket");
 	}
 	int y = 1;
-	setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, &y, sizeof(int)); //make socket reusable
+	/* Make socket reusable */
+	setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, &y, sizeof(int));
 
 	/* Set up the server address struct (struct, port, hostname) */
 	setupAddressStruct(&serverAddress, atoi(argv[3]), "127.0.0.1");
@@ -251,11 +255,11 @@ int main(int argc, char *argv[])
 
 	/* Send all of the key to the server */
 	sendallFromFile(keyTextFile, socketFD);
-	printf("\nCLIENT: Done sending key data to server\n");
+	printf("\nCLIENT: Done sending key data to server\n\n");
 
 	/* Send all of the plain text data to user */
 	sendallFromFile(plainTextFile, socketFD);
-	printf("\nCLIENT: Done sending text data to server\n");
+	printf("\nCLIENT: Done sending text data to server\n\n");
 
 	/* Receive data from the server, leaving \0 at end */
 	/* TODO: Make a more elegant receiving system that limits buffer to 1024*/

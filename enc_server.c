@@ -29,16 +29,35 @@ void setupAddressStruct(struct sockaddr_in *address,
 	address->sin_addr.s_addr = INADDR_ANY;
 }
 
-void encrypt(char *toEncrypt, char *raw, char *key)
+/* Assumes toEncrypt is okay to be overwritten (expected empty) */
+void encrypt(char *toEncrypt, int toEncryptSize, char *raw, char *key)
 {
+	if (toEncryptSize < strlen(raw))
+	{
+		printf("CLIENT: ERROR: Encryption buffer size smaller than raw data.\n");
+	}
+	memset(toEncrypt, '\0', toEncryptSize);
 	int i;
 	for (i = 0; i < strlen(raw); i++)
 	{
+		char encryptedCharCode = ((raw[i] + key[i]) % 26) + 'A';
+		toEncrypt[i] = encryptedCharCode;
 	}
+	printf("\nCLIENT: Encrypted message: %s\n", toEncrypt);
+}
+
+void sendACK(connectionSocket)
+{
+	char ACKBuffer[20];
+	memset(ACKBuffer, '\0', 20);
+	strcat(ACKBuffer, "ACK");
+	printf("SERVER: Sending ACK:%s to client\n", ACKBuffer);
+	send(connectionSocket, ACKBuffer, strlen(ACKBuffer), 0);
 }
 
 void receiveData(char *payload, int connectionSocket)
 {
+	int i;
 	char buffer[1024];
 	memset(buffer, '\0', 1024);
 	/* First recv() should be payload size */
@@ -48,6 +67,13 @@ void receiveData(char *payload, int connectionSocket)
 	{
 		perror("enc_server");
 		printf("ERROR with read\n");
+	}
+	else
+	{
+		/* Sending ACK to client */
+		printf("SERVER: Received: %s from client\n", buffer);
+		printf("SERVER: CHARS READ: %d\n", charsRead);
+		sendACK(connectionSocket);
 	}
 	int currByte, payloadSize;
 	payloadSize = atoi(buffer);
@@ -59,7 +85,16 @@ void receiveData(char *payload, int connectionSocket)
 	while (currByte < payloadSize)
 	{
 		memset(buffer, '\0', 1024);
-		currByte += recv(connectionSocket, buffer, 1024, 0);
+		int chars = recv(connectionSocket, buffer, 1024, 0);
+		if (chars < 0)
+		{
+			printf("SERVER: ERROR retrieving payload\n");
+		}
+		else
+		{
+			currByte += chars;
+			sendACK(connectionSocket);
+		}
 		strcat(payload, buffer);
 		printf("SERVER: Received: %s\n", buffer);
 	}
@@ -128,12 +163,16 @@ int main(int argc, char *argv[])
 		memset(message, '\0', 71000);
 		receiveData(message, connectionSocket);
 		printf("SERVER: Confirming message: %s\n", message);
+
 		/* TODO: Add Encryption process */
+		char encryptedMessage[71000];
+		memset(encryptedMessage, '\0', 71000);
+		encrypt(encryptedMessage, strlen(message), message, key);
 
 		/* Send a Success message back to the client */
 		/* TODO: SEND BACK ENCRYPTED TEXT*/
 		charsRead = send(connectionSocket,
-						 "I am the server, and I got your message", 39, 0);
+						 encryptedMessage, strlen(encryptedMessage), 0);
 		if (charsRead < 0)
 		{
 			error("ERROR writing to socket");

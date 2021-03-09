@@ -146,23 +146,38 @@ void sendallFromFile(char *fn, int socketFD)
 {
 	int i;
 
+	/* Prepare fileContents buffer and fill it */
 	char fileContents[71000];
 	int fileLen;
 	memset(fileContents, '\0', 71000);
 	readFile(fileContents, fn);
 	fileLen = strlen(fileContents);
 
+	/* Send TOTAL payload size */
 	char buffer[1024];
+	char ACKBuffer[20];
+	memset(ACKBuffer, '\0', 20);
 	memset(buffer, '\0', 1024);
 	int currByte = 0;
 	char payloadSize[1024];
 	memset(payloadSize, '\0', 1024);
 	myitoa(fileLen, payloadSize, 10);
 	printf("CLIENT: Sending Size of Payload: %s\n", payloadSize);
-	send(socketFD, payloadSize, sizeof(payloadSize), 0);
-	memset(buffer, '\0', 1024);
+
+	/* recv ACK (stops program and waits for data) */
+	int bytesSent = send(socketFD, payloadSize, atoi(payloadSize), 0);
+	printf("CLIENT: Bytes sent: %d\n", bytesSent);
+	recv(socketFD, ACKBuffer, sizeof(ACKBuffer) - 1, 0);
+	if (strcmp(ACKBuffer, "ACK") == 0)
+	{
+		printf("CLIENT: Received ACK of: \'%s\' from the server\n", ACKBuffer);
+	}
+
+	/* Start sending data and receiving ACKs while there's still data to send */
 	while (currByte < fileLen)
 	{
+		/* Transfer data from fileContents buffer (large) to payload buffer (small) */
+		memset(buffer, '\0', 1024);
 		for (i = 0; i < 1023; i++)
 		{
 			if (fileContents[currByte + i] == '\0')
@@ -172,11 +187,19 @@ void sendallFromFile(char *fn, int socketFD)
 			buffer[i] = fileContents[currByte + i];
 		}
 		buffer[i] = '\0';
-		currByte += i;
+
+		/* Send payload buffer now that it's ready */
 		printf("CLIENT: Sending Payload: %s\n", buffer);
-		/*printf("CurrByte: %d\n", currByte);*/
 		send(socketFD, buffer, sizeof(buffer) - 1, 0);
-		memset(buffer, '\0', 1024);
+
+		/* Await ACK from server */
+		memset(ACKBuffer, '\0', 20);
+		recv(socketFD, ACKBuffer, 20, 0);
+		if (strcmp(ACKBuffer, "ACK") == 0)
+		{
+			printf("CLIENT: Received ACK:%s from client\n", ACKBuffer);
+			currByte += i;
+		}
 	}
 }
 
@@ -225,13 +248,15 @@ int main(int argc, char *argv[])
 	sendallFromFile(plainTextFile, socketFD);
 
 	/* Receive data from the server, leaving \0 at end */
-	char buffer[1024];
+	/* TODO: Make a more elegant receiving system that limits buffer to 1024*/
+	char buffer[71000];
+	memset(buffer, '\0', 71000);
 	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);
 	if (charsRead < 0)
 	{
 		error("CLIENT: ERROR reading from socket");
 	}
-	printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+	printf("CLIENT: Encrypted version of message sent from server: \"%s\"\n", buffer);
 
 	sleep(10);
 

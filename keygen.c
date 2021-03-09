@@ -57,10 +57,6 @@ char *keygen(int length)
 		key[i] = randchar;
 	}
 
-	/* key is of size length+2, so key[length] is the last available space
-	 before the null terminating character and after the random numbers */
-	key[length] = '\n';
-
 	return key;
 }
 

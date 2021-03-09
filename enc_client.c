@@ -243,9 +243,11 @@ int main(int argc, char *argv[])
 
 	/* Send all of the key to the server */
 	sendallFromFile(keyTextFile, socketFD);
+	printf("\nCLIENT: Done sending key data to server\n");
 
 	/* Send all of the plain text data to user */
 	sendallFromFile(plainTextFile, socketFD);
+	printf("\nCLIENT: Done sending text data to server\n");
 
 	/* Receive data from the server, leaving \0 at end */
 	/* TODO: Make a more elegant receiving system that limits buffer to 1024*/

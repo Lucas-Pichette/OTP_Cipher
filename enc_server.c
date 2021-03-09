@@ -147,38 +147,47 @@ int main(int argc, char *argv[])
 		{
 			error("ERROR on accept");
 		}
-
-		printf("SERVER: Connected to client running at host %d port %d\n",
-			   ntohs(clientAddress.sin_addr.s_addr),
-			   ntohs(clientAddress.sin_port));
-
-		/* Receive key from client */
-		char key[71000];
-		memset(key, '\0', 71000);
-		receiveData(key, connectionSocket);
-		printf("SERVER: Confirming key: %s\n", key);
-
-		/* Receive message from client */
-		char message[71000];
-		memset(message, '\0', 71000);
-		receiveData(message, connectionSocket);
-		printf("SERVER: Confirming message: %s\n", message);
-
-		/* TODO: Add Encryption process */
-		char encryptedMessage[71000];
-		memset(encryptedMessage, '\0', 71000);
-		encrypt(encryptedMessage, strlen(message), message, key);
-
-		/* Send a Success message back to the client */
-		/* TODO: SEND BACK ENCRYPTED TEXT*/
-		charsRead = send(connectionSocket,
-						 encryptedMessage, strlen(encryptedMessage), 0);
-		if (charsRead < 0)
+		int pid = fork();
+		switch (pid)
 		{
-			error("ERROR writing to socket");
+		case -1:
+			error("ERROR Creating Fork");
+			break;
+		case 0:
+			printf("SERVER: Connected to client running at host %d port %d\n",
+				   ntohs(clientAddress.sin_addr.s_addr),
+				   ntohs(clientAddress.sin_port));
+			/* Receive key from client */
+			char key[71000];
+			memset(key, '\0', 71000);
+			receiveData(key, connectionSocket);
+			printf("SERVER: Confirming key: %s\n", key);
+
+			/* Receive message from client */
+			char message[71000];
+			memset(message, '\0', 71000);
+			receiveData(message, connectionSocket);
+			printf("SERVER: Confirming message: %s\n", message);
+
+			/* Encrypt message from client and store it in new buffer */
+			char encryptedMessage[71000];
+			memset(encryptedMessage, '\0', 71000);
+			encrypt(encryptedMessage, strlen(message), message, key);
+
+			/* Send a Success message back to the client */
+			/* TODO: SEND BACK ENCRYPTED TEXT (Do it in a more elegant way, 1024 buffers) */
+			charsRead = send(connectionSocket,
+							 encryptedMessage, strlen(encryptedMessage), 0);
+			if (charsRead < 0)
+			{
+				error("ERROR writing to socket");
+			}
+			/* Close the connection socket for this client */
+			close(connectionSocket);
+			exit(0);
+		default:
+			break;
 		}
-		/* Close the connection socket for this client */
-		close(connectionSocket);
 	}
 	/* Close the listening socket */
 	close(listenSocket);

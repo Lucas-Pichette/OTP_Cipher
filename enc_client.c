@@ -7,20 +7,11 @@
 #include <netdb.h>		/* { gethostbyname } */
 #include <fcntl.h>		/* { open } */
 
-/**
-* Client code
-* 1. Create a socket and connect to the server specified in the command arugments.
-* 2. Prompt the user for input and send that input as a message to the server.
-* 3. Print the message received from the server and exit the program.
-*/
-
-int isupper(char c)
+/* Error function used for reporting issues */
+void error(char *msg)
 {
-	if (65 <= c && c <= 90)
-	{
-		return 1;
-	}
-	return 0;
+	perror(msg);
+	exit(0);
 }
 
 int numdigits(int n)
@@ -50,10 +41,9 @@ int getCharCount(char *fn)
 
 		if (c == EOF || c == '\n')
 			break;
-		if (!isupper(c) && c != ' ')
+		if (('A' <= c && c <= 'Z') && c != ' ')
 		{
 			error("File contains bad characters!\n");
-			printf("CLIENT: ERROR: File (%s) contains invalid characters\n", fn);
 			fclose(fp);
 			exit(0);
 		}
@@ -78,47 +68,6 @@ void readFile(char *fileContents, char *fn)
 	rewind(fp);
 	fread(fileContents, 1, fSize, fp);
 	fclose(fp);
-}
-
-/*
- http://www.strudel.org.uk/itoa/ 
-char *myitoa(int value, char *result, int base)
-{
-	// check that the base if valid
-	if (base < 2 || base > 36)
-	{
-		*result = '\0';
-		return result;
-	}
-
-	char *ptr = result, *ptr1 = result, tmp_char;
-	int tmp_value;
-
-	do
-	{
-		tmp_value = value;
-		value /= base;
-		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz"[35 + (tmp_value - value * base)];
-	} while (value);
-
-	// Apply negative sign
-	if (tmp_value < 0)
-		*ptr++ = '-';
-	*ptr-- = '\0';
-	while (ptr1 < ptr)
-	{
-		tmp_char = *ptr;
-		*ptr-- = *ptr1;
-		*ptr1++ = tmp_char;
-	}
-	return result;
-}*/
-
-/* Error function used for reporting issues */
-void error(char *msg)
-{
-	perror(msg);
-	exit(0);
 }
 
 /* Set up the address struct */
@@ -151,8 +100,6 @@ void setupAddressStruct(struct sockaddr_in *address,
 
 void sendallFromFile(char *fn, int socketFD)
 {
-	int i;
-
 	/* Prepare fileContents buffer and fill it */
 	char fileContents[71000];
 	int fileLen;
@@ -170,22 +117,17 @@ void sendallFromFile(char *fn, int socketFD)
 	memset(payloadSize, '\0', 6);
 	/*myitoa(fileLen, payloadSize, 10);*/
 	sprintf(payloadSize, "%5d", fileLen);
-	printf("CLIENT: Sending Size of Payload: %s\n", payloadSize);
 
 	/* recv ACK (stops program and waits for data) */
-	int bytesSent = send(socketFD, payloadSize, 5, 0);
-	printf("CLIENT: Bytes sent: %d\n", bytesSent);
+	send(socketFD, payloadSize, 5, 0);
 	recv(socketFD, ACKBuffer, sizeof(ACKBuffer) - 1, 0);
-	if (strcmp(ACKBuffer, "ACK") == 0)
-	{
-		printf("CLIENT: Received ACK of: \'%s\' from the server\n", ACKBuffer);
-	}
 
 	/* Start sending data and receiving ACKs while there's still data to send */
 	while (currByte < fileLen)
 	{
 		/* Transfer data from fileContents buffer (large) to payload buffer (small) */
 		memset(buffer, '\0', 1024);
+		int i;
 		for (i = 0; i < 1023; i++)
 		{
 			if (fileContents[currByte + i] == '\0')
@@ -197,7 +139,6 @@ void sendallFromFile(char *fn, int socketFD)
 		buffer[i] = '\0';
 
 		/* Send payload buffer now that it's ready */
-		printf("CLIENT: Sending Payload: %s\n", buffer);
 		send(socketFD, buffer, sizeof(buffer) - 1, 0);
 
 		/* Await ACK from server */
@@ -205,7 +146,6 @@ void sendallFromFile(char *fn, int socketFD)
 		recv(socketFD, ACKBuffer, 20, 0);
 		if (strcmp(ACKBuffer, "ACK") == 0)
 		{
-			printf("CLIENT: Received ACK:%s from client\n", ACKBuffer);
 			currByte += i;
 		}
 	}
@@ -213,8 +153,6 @@ void sendallFromFile(char *fn, int socketFD)
 
 int main(int argc, char *argv[])
 {
-	int i;
-
 	int socketFD, charsRead;
 	struct sockaddr_in serverAddress;
 	/* Check usage & args */
@@ -250,18 +188,15 @@ int main(int argc, char *argv[])
 	long rKeyLen = getCharCount(keyTextFile);
 	if (rFileLen > rKeyLen)
 	{
-		printf("CLIENT: Key is too short!\n");
-		close(socketFD);
-		exit(0);
+		printf("Key too short!\n");
+		error("Key too short!\n");
 	}
 
 	/* Send all of the key to the server */
 	sendallFromFile(keyTextFile, socketFD);
-	printf("\nCLIENT: Done sending key data to server\n\n");
 
 	/* Send all of the plain text data to user */
 	sendallFromFile(plainTextFile, socketFD);
-	printf("\nCLIENT: Done sending text data to server\n\n");
 
 	/* Receive data from the server, leaving \0 at end */
 	/* TODO: Make a more elegant receiving system that limits buffer to 1024*/
@@ -272,7 +207,7 @@ int main(int argc, char *argv[])
 	{
 		error("CLIENT: ERROR reading from socket");
 	}
-	printf("CLIENT: Encrypted version of message sent from server: \"%s\"\n", buffer);
+	printf("%s", buffer);
 
 	sleep(10);
 

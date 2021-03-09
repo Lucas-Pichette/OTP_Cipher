@@ -20,7 +20,7 @@ Must be able to compile C code using a GCC compiler and run the produced executa
 <br>
 
 ## How to Use:
-While in the same directory as `Makefile`, run the program by using the command `make separate`.     
+While in the same directory as `compileall`, ensure compileall has correct access by running `chmod +755 compileall`. Then, run `./compileall`.     
   
 <br>
 

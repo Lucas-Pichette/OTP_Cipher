@@ -29,21 +29,34 @@ void setupAddressStruct(struct sockaddr_in *address,
 	address->sin_addr.s_addr = INADDR_ANY;
 }
 
-/* Assumes toEncrypt is okay to be overwritten (expected empty) */
-void encrypt(char *toEncrypt, int toEncryptSize, char *raw, char *key)
+int charToInt(char c)
 {
-	if (toEncryptSize < strlen(raw))
+	if (c == ' ')
 	{
-		printf("CLIENT: ERROR: Encryption buffer size smaller than raw data.\n");
+		return 26;
 	}
-	memset(toEncrypt, '\0', toEncryptSize);
+	return (c - 'A');
+}
+
+char intToChar(int i)
+{
+	if (i == 26)
+	{
+		return ' ';
+	}
+	return (i + 'A');
+}
+
+/* Assumes message is okay to be overwritten (expected empty) */
+void encrypt(char *message, char *key)
+{
 	int i;
-	for (i = 0; i < strlen(raw); i++)
+	for (i = 0; message[i] != '\n'; i++)
 	{
-		char encryptedCharCode = ((raw[i] + key[i]) % 26) + 'A';
-		toEncrypt[i] = encryptedCharCode;
+		char n = (charToInt(message[i]) + charToInt(key[i])) % 27;
+		message[i] = intToChar(n);
 	}
-	printf("\nCLIENT: Encrypted message: %s\n", toEncrypt);
+	message[i] = '\0';
 }
 
 void sendACK(int connectionSocket)
@@ -51,33 +64,26 @@ void sendACK(int connectionSocket)
 	char ACKBuffer[20];
 	memset(ACKBuffer, '\0', 20);
 	strcat(ACKBuffer, "ACK");
-	printf("SERVER: Sending ACK:%s to client\n", ACKBuffer);
 	send(connectionSocket, ACKBuffer, strlen(ACKBuffer), 0);
 }
 
 void receiveData(char *payload, int connectionSocket)
 {
-	int i;
 	char pBuff[6];
 	memset(pBuff, '\0', 6);
 	/* First recv() should be payload size */
-	printf("SERVER: Attempting to receive data...\n");
 	int charsRead = recv(connectionSocket, pBuff, 5, 0);
 	if (charsRead < 0)
 	{
 		perror("enc_server");
-		printf("ERROR with read\n");
 	}
 	else
 	{
 		/* Sending ACK to client */
-		printf("SERVER: Received: %s\n", pBuff);
-		printf("SERVER: CHARS READ: %d\n", charsRead);
 		sendACK(connectionSocket);
 	}
 	int currByte, payloadSize;
 	payloadSize = atoi(pBuff);
-	printf("SERVER: Received Size of Payload: %d\n", payloadSize);
 	currByte = 0;
 
 	/* retrieve payload */
@@ -90,7 +96,7 @@ void receiveData(char *payload, int connectionSocket)
 		int chars = recv(connectionSocket, buffer, 1024, 0);
 		if (chars < 0)
 		{
-			printf("SERVER: ERROR retrieving payload\n");
+			perror("ERROR retrieving payload");
 		}
 		else
 		{
@@ -98,14 +104,11 @@ void receiveData(char *payload, int connectionSocket)
 			sendACK(connectionSocket);
 		}
 		strcat(payload, buffer);
-		printf("SERVER: Received: %s\n", buffer);
 	}
 }
 
 int main(int argc, char *argv[])
 {
-	int i;
-
 	int connectionSocket, charsRead;
 	struct sockaddr_in serverAddress, clientAddress;
 	socklen_t sizeOfClientInfo = sizeof(clientAddress);
@@ -153,33 +156,28 @@ int main(int argc, char *argv[])
 		switch (pid)
 		{
 		case -1:
+		{
 			error("ERROR Creating Fork");
 			break;
+		}
 		case 0:
-			printf("SERVER: Connected to client running at host %d port %d\n",
-				   ntohs(clientAddress.sin_addr.s_addr),
-				   ntohs(clientAddress.sin_port));
+		{
 			/* Receive key from client */
 			char key[71000];
 			memset(key, '\0', 71000);
 			receiveData(key, connectionSocket);
-			printf("SERVER: Confirming key: %s\n", key);
 
 			/* Receive message from client */
 			char message[71000];
 			memset(message, '\0', 71000);
 			receiveData(message, connectionSocket);
-			printf("SERVER: Confirming message: %s\n", message);
 
-			/* Encrypt message from client and store it in new buffer */
-			char encryptedMessage[71000];
-			memset(encryptedMessage, '\0', 71000);
-			encrypt(encryptedMessage, strlen(message), message, key);
+			/* Encrypt message from client and store it in same buffer */
+			encrypt(message, key);
 
-			/* Send a Success message back to the client */
 			/* TODO: SEND BACK ENCRYPTED TEXT (Do it in a more elegant way, 1024 buffers) */
 			charsRead = send(connectionSocket,
-							 encryptedMessage, strlen(encryptedMessage), 0);
+							 message, strlen(message), 0);
 			if (charsRead < 0)
 			{
 				error("ERROR writing to socket");
@@ -187,8 +185,11 @@ int main(int argc, char *argv[])
 			/* Close the connection socket for this client */
 			close(connectionSocket);
 			exit(0);
+		}
 		default:
+		{
 			break;
+		}
 		}
 	}
 	/* Close the listening socket */

@@ -46,7 +46,7 @@ void encrypt(char *toEncrypt, int toEncryptSize, char *raw, char *key)
 	printf("\nCLIENT: Encrypted message: %s\n", toEncrypt);
 }
 
-void sendACK(connectionSocket)
+void sendACK(int connectionSocket)
 {
 	char ACKBuffer[20];
 	memset(ACKBuffer, '\0', 20);
@@ -58,11 +58,11 @@ void sendACK(connectionSocket)
 void receiveData(char *payload, int connectionSocket)
 {
 	int i;
-	char buffer[1024];
-	memset(buffer, '\0', 1024);
+	char pBuff[6];
+	memset(pBuff, '\0', 6);
 	/* First recv() should be payload size */
 	printf("SERVER: Attempting to receive data...\n");
-	int charsRead = recv(connectionSocket, buffer, 1024, 0);
+	int charsRead = recv(connectionSocket, pBuff, 5, 0);
 	if (charsRead < 0)
 	{
 		perror("enc_server");
@@ -71,16 +71,18 @@ void receiveData(char *payload, int connectionSocket)
 	else
 	{
 		/* Sending ACK to client */
-		printf("SERVER: Received: %s from client\n", buffer);
+		printf("SERVER: Received: %s\n", pBuff);
 		printf("SERVER: CHARS READ: %d\n", charsRead);
 		sendACK(connectionSocket);
 	}
 	int currByte, payloadSize;
-	payloadSize = atoi(buffer);
+	payloadSize = atoi(pBuff);
 	printf("SERVER: Received Size of Payload: %d\n", payloadSize);
 	currByte = 0;
 
 	/* retrieve payload */
+	char buffer[1024];
+	memset(buffer, '\0', 1024);
 	memset(payload, '\0', 71000);
 	while (currByte < payloadSize)
 	{

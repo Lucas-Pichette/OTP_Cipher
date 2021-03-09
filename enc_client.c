@@ -80,7 +80,8 @@ void readFile(char *fileContents, char *fn)
 	fclose(fp);
 }
 
-/* http://www.strudel.org.uk/itoa/ */
+/*
+ http://www.strudel.org.uk/itoa/ 
 char *myitoa(int value, char *result, int base)
 {
 	// check that the base if valid
@@ -111,7 +112,7 @@ char *myitoa(int value, char *result, int base)
 		*ptr1++ = tmp_char;
 	}
 	return result;
-}
+}*/
 
 /* Error function used for reporting issues */
 void error(char *msg)
@@ -165,13 +166,14 @@ void sendallFromFile(char *fn, int socketFD)
 	memset(ACKBuffer, '\0', 20);
 	memset(buffer, '\0', 1024);
 	int currByte = 0;
-	char payloadSize[1024];
-	memset(payloadSize, '\0', 1024);
-	myitoa(fileLen, payloadSize, 10);
+	char payloadSize[6];
+	memset(payloadSize, '\0', 6);
+	/*myitoa(fileLen, payloadSize, 10);*/
+	sprintf(payloadSize, "%5d", fileLen);
 	printf("CLIENT: Sending Size of Payload: %s\n", payloadSize);
 
 	/* recv ACK (stops program and waits for data) */
-	int bytesSent = send(socketFD, payloadSize, atoi(payloadSize), 0);
+	int bytesSent = send(socketFD, payloadSize, 5, 0);
 	printf("CLIENT: Bytes sent: %d\n", bytesSent);
 	recv(socketFD, ACKBuffer, sizeof(ACKBuffer) - 1, 0);
 	if (strcmp(ACKBuffer, "ACK") == 0)

@@ -193,6 +193,7 @@ void receiveData(char *payload, int connectionSocket)
 		else
 		{
 			currByte += chars;
+
 			sendACK(connectionSocket);
 		}
 		strcat(payload, buffer);
@@ -266,8 +267,6 @@ int main(int argc, char *argv[])
 	memset(buffer, '\0', 71000);
 	receiveData(buffer, socketFD);
 	printf("%s\n", buffer);
-
-	sleep(10);
 
 	/* Close the socket */
 	close(socketFD);

@@ -120,7 +120,7 @@ rm -f plaintext*_*
 ./enc_client plaintext4 key70000 $encport > ciphertext4 &
 ./enc_client plaintext5 key70000 $encport > ciphertext5 &
 ${echo} 'Ten second sleep, your program must complete in this time'
-sleep 10
+sleep 15
 ls -pla
 ${echo}
 ${echo} '#-----------------------------------------'
@@ -130,7 +130,7 @@ ${echo} '#15 POINTS: concurrent test of decryption - look for 4 plaintext#_a fil
 ./dec_client ciphertext3 key70000 $decport > plaintext3_a &
 ./dec_client ciphertext4 key70000 $decport > plaintext4_a &
 ${echo} '#Ten second sleep, your program must complete in this time'
-sleep 10
+sleep 15
 ls -pla
 
 #Clean up

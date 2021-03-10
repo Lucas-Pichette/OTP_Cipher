@@ -141,9 +141,10 @@ void sendall(char *payload, int socketFD)
 		buffer[i] = '\0';
 
 		/* Send payload buffer now that it's ready */
-		send(socketFD, buffer, sizeof(buffer) - 1, 0);
 
-		/* Await ACK from server */
+		send(socketFD, buffer, sizeof(buffer) - 1, 0);
+		/*
+		 Await ACK from server */
 		memset(ACKBuffer, '\0', 20);
 		recv(socketFD, ACKBuffer, 20, 0);
 		if (strcmp(ACKBuffer, "ACK") == 0)

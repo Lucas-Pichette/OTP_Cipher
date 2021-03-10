@@ -267,8 +267,6 @@ int main(int argc, char *argv[])
 	receiveData(buffer, socketFD);
 	printf("%s\n", buffer);
 
-	sleep(10);
-
 	/* Close the socket */
 	close(socketFD);
 	return 0;

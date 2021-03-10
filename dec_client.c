@@ -41,7 +41,7 @@ int getCharCount(char *fn)
 
 		if (c == EOF || c == '\n')
 			break;
-		if (('A' <= c && c <= 'Z') && c != ' ')
+		if (!('A' <= c && c <= 'Z') && c != ' ')
 		{
 			error("File contains bad characters!\n");
 			fclose(fp);
@@ -98,6 +98,14 @@ void setupAddressStruct(struct sockaddr_in *address,
 		   hostInfo->h_length);
 }
 
+void sendACK(int connectionSocket)
+{
+	char ACKBuffer[20];
+	memset(ACKBuffer, '\0', 20);
+	strcat(ACKBuffer, "ACK");
+	send(connectionSocket, ACKBuffer, strlen(ACKBuffer), 0);
+}
+
 void sendallFromFile(char *fn, int socketFD)
 {
 	/* Prepare fileContents buffer and fill it */
@@ -151,9 +159,48 @@ void sendallFromFile(char *fn, int socketFD)
 	}
 }
 
+void receiveData(char *payload, int connectionSocket)
+{
+	char pBuff[6];
+	memset(pBuff, '\0', 6);
+	/* First recv() should be payload size */
+	int charsRead = recv(connectionSocket, pBuff, 5, 0);
+	if (charsRead < 0)
+	{
+		perror("enc_server");
+	}
+	else
+	{
+		/* Sending ACK to client */
+		sendACK(connectionSocket);
+	}
+	int currByte, payloadSize;
+	payloadSize = atoi(pBuff);
+	currByte = 0;
+
+	/* retrieve payload */
+	char buffer[1024];
+	memset(buffer, '\0', 1024);
+	memset(payload, '\0', 71000);
+	while (currByte < payloadSize)
+	{
+		memset(buffer, '\0', 1024);
+		int chars = recv(connectionSocket, buffer, 1024, 0);
+		if (chars < 0)
+		{
+			perror("ERROR retrieving payload");
+		}
+		else
+		{
+			currByte += chars;
+			sendACK(connectionSocket);
+		}
+		strcat(payload, buffer);
+	}
+}
+
 int main(int argc, char *argv[])
 {
-	int socketFD, charsRead;
 	struct sockaddr_in serverAddress;
 	/* Check usage & args */
 	if (argc < 4)
@@ -165,7 +212,7 @@ int main(int argc, char *argv[])
 	char *keyTextFile = argv[2];
 
 	/* Create a socket (internet socket, TCP connection, auto-protocol) */
-	socketFD = socket(AF_INET, SOCK_STREAM, 0);
+	int socketFD = socket(AF_INET, SOCK_STREAM, 0);
 	if (socketFD < 0)
 	{
 		error("CLIENT: ERROR opening socket");
@@ -183,12 +230,28 @@ int main(int argc, char *argv[])
 		error("CLIENT: ERROR connecting");
 	}
 
+	/* let client know this is enc server */
+	char sendIdentity[4];
+	memset(sendIdentity, '\0', 4);
+	strcat(sendIdentity, "dec");
+	send(socketFD, sendIdentity, 3, 0);
+
+	/* Determine if connecting to correct server */
+	char closingMsg[6];
+	memset(closingMsg, '\0', 6);
+	recv(socketFD, closingMsg, 5, 0);
+	if (strcmp(closingMsg, "close") == 0)
+	{
+		close(socketFD);
+		perror("Connecting to wrong socket");
+		exit(2);
+	}
+
 	/* Gather "raw"/unread file lengths for both text and key files */
-	long rFileLen = getCharCount(plainTextFile);
-	long rKeyLen = getCharCount(keyTextFile);
+	int rFileLen = getCharCount(plainTextFile);
+	int rKeyLen = getCharCount(keyTextFile);
 	if (rFileLen > rKeyLen)
 	{
-		printf("Key too short!\n");
 		error("Key too short!\n");
 	}
 
@@ -199,15 +262,10 @@ int main(int argc, char *argv[])
 	sendallFromFile(plainTextFile, socketFD);
 
 	/* Receive data from the server, leaving \0 at end */
-	/* TODO: Make a more elegant receiving system that limits buffer to 1024*/
 	char buffer[71000];
 	memset(buffer, '\0', 71000);
-	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);
-	if (charsRead < 0)
-	{
-		error("CLIENT: ERROR reading from socket");
-	}
-	printf("%s", buffer);
+	receiveData(buffer, socketFD);
+	printf("%s\n", buffer);
 
 	sleep(10);
 

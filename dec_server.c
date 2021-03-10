@@ -48,16 +48,12 @@ char intToChar(int i)
 }
 
 /* Assumes message is okay to be overwritten (expected empty) */
-void decrypt(char message[], char key[])
+void decrypt(char *message, char *key)
 {
 	int i;
 	for (i = 0; message[i] != '\n'; i++)
 	{
-		char n = charToInt(message[i]) - charToInt(key[i]);
-		if (n < 0)
-		{
-			n += 27;
-		}
+		char n = (charToInt(message[i]) - charToInt(key[i]) + 27) % 27;
 		message[i] = intToChar(n);
 	}
 	message[i] = '\0';
@@ -111,6 +107,52 @@ void receiveData(char *payload, int connectionSocket)
 	}
 }
 
+/* Assumes buffer passed in is ready to be sent */
+void sendall(char *payload, int socketFD)
+{
+	/* Send TOTAL payload size */
+	char buffer[1024];
+	char ACKBuffer[20];
+	memset(ACKBuffer, '\0', 20);
+	memset(buffer, '\0', 1024);
+	int currByte = 0;
+	char payloadSize[6];
+	memset(payloadSize, '\0', 6);
+	sprintf(payloadSize, "%5d", (int)strlen(payload));
+
+	/* recv ACK (stops program and waits for data) */
+	send(socketFD, payloadSize, 5, 0);
+	recv(socketFD, ACKBuffer, sizeof(ACKBuffer) - 1, 0);
+
+	/* Start sending data and receiving ACKs while there's still data to send */
+	while (currByte < atoi(payloadSize))
+	{
+		/* Transfer data from payload buffer (large) to payload buffer (small) */
+		memset(buffer, '\0', 1024);
+		int i;
+		for (i = 0; i < 1023; i++)
+		{
+			if (payload[currByte + i] == '\0')
+			{
+				break;
+			}
+			buffer[i] = payload[currByte + i];
+		}
+		buffer[i] = '\0';
+
+		/* Send payload buffer now that it's ready */
+		send(socketFD, buffer, sizeof(buffer) - 1, 0);
+
+		/* Await ACK from server */
+		memset(ACKBuffer, '\0', 20);
+		recv(socketFD, ACKBuffer, 20, 0);
+		if (strcmp(ACKBuffer, "ACK") == 0)
+		{
+			currByte += i;
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int connectionSocket, charsRead;
@@ -148,7 +190,7 @@ int main(int argc, char *argv[])
 	/* Accept a connection, blocking if one is not available until one connects */
 	while (1)
 	{
-		/* Accept the connection request which creates a connection socket */
+		/* Open the socket */
 		connectionSocket = accept(listenSocket,
 								  (struct sockaddr *)&clientAddress,
 								  &sizeOfClientInfo);
@@ -156,6 +198,8 @@ int main(int argc, char *argv[])
 		{
 			error("ERROR on accept");
 		}
+
+		/* Accept the connection request which creates a connection socket */
 		int pid = fork();
 		switch (pid)
 		{
@@ -166,6 +210,32 @@ int main(int argc, char *argv[])
 		}
 		case 0:
 		{
+			/* Ensure enc is only connecting to enc_server */
+			char correctClient[4];
+			memset(correctClient, '\0', 4);
+			charsRead = recv(connectionSocket, correctClient, 3, 0);
+			if (charsRead < 0)
+			{
+				error("Error reading from socket");
+			}
+			if (strcmp(correctClient, "dec"))
+			{
+				char closingMsg[6];
+				memset(closingMsg, '\0', 6);
+				strcat(closingMsg, "close");
+				charsRead = send(connectionSocket, closingMsg, 5, 0);
+				close(connectionSocket);
+				perror("wrongful connection\n");
+				exit(2);
+			}
+			else
+			{
+				char closingMsg[6];
+				memset(closingMsg, '\0', 6);
+				strcat(closingMsg, "open!");
+				charsRead = send(connectionSocket, closingMsg, 5, 0);
+			}
+
 			/* Receive key from client */
 			char key[71000];
 			memset(key, '\0', 71000);
@@ -179,14 +249,9 @@ int main(int argc, char *argv[])
 			/* Decrypt message from client and store it in same buffer */
 			decrypt(message, key);
 
-			/* Send a Success message back to the client */
-			/* TODO: SEND BACK ENCRYPTED TEXT (Do it in a more elegant way, 1024 buffers) */
-			charsRead = send(connectionSocket,
-							 message, strlen(message), 0);
-			if (charsRead < 0)
-			{
-				error("ERROR writing to socket");
-			}
+			/* Send back decrypted message */
+			sendall(message, connectionSocket);
+
 			/* Close the connection socket for this client */
 			close(connectionSocket);
 			exit(0);
